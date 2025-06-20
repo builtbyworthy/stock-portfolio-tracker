@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from temp_db import stocks
 from starlette.responses import RedirectResponse
-# from pprint import pprint
+import random
 
 app = FastAPI()
 
@@ -36,3 +36,19 @@ def add_stock(stock: dict):
     stocks.append(new_stock)
     print(stocks)
     return stocks
+
+
+@app.get("/view_portfolio")
+def view_portfolio():
+    portfolio = []
+
+    for stock in stocks:
+        portfolio.append(
+            {
+                "symbol": stock["symbol"],
+                "quantity": stock["quantity"],
+                "price": f"{random.randint(10, 500):0.2f}"
+            }
+        )
+
+    return portfolio
