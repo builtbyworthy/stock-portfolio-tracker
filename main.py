@@ -3,11 +3,9 @@ from fastapi import FastAPI, HTTPException
 from temp_db import stocks
 from starlette.responses import RedirectResponse
 import random
+import requests
 
 app = FastAPI()
-
-# TODO: Write logic that checks whether a stock is already
-# in the db before adding.
 
 
 @app.get("/")
@@ -88,4 +86,8 @@ def view_portfolio():
 
 @app.get("/historical_prices")
 def view_historical_prices():
-    return {"message": "Work in progress."}
+    url = "https://www.alphavantage.co/query?function=HISTORICAL_OPTIONS&symbol=IBM&apikey=demo"
+    req = requests.get(url)
+    data = req.json()["data"]
+
+    return data
