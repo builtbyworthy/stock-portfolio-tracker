@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/python3
 from fastapi import FastAPI
 from temp_db import stocks
 from starlette.responses import RedirectResponse
