@@ -52,13 +52,15 @@ def convert_to_stock(data: List[dict]):
 class StockCreate(BaseModel):
     symbol: str = Field(..., min_length=1, max_length=10,
                         description="Stock symbol")
-    quantity: int = Field(..., description="Stock quantity")
+    quantity: int = Field(..., ge=0,
+                          description="Stock quantity (Quantity must be non-negative)")
 
 
 class StockUpdate(BaseModel):
     symbol: Optional[str] = Field(None, min_length=1, max_length=10,
                                   description="Stock symbol")
-    quantity: Optional[int] = Field(None, description="Stock quantity")
+    quantity: Optional[int] = Field(None, ge=0,
+                                    description="Stock quantity (Quantity must be non-negative)")
 
 
 class PortfolioStock(StockCreate):
@@ -169,11 +171,24 @@ def update_stock(symbol: str, updated_stock: StockUpdate):
 
 @app.delete("/stocks/{symbol}", response_model=Stock)
 def delete_stock(symbol: str):
-    for i, stock in enumerate(stocks):
-        if stock.symbol.lower() == symbol.lower():
-            return stocks.pop(i)
+    with db_cursor() as cursor:
+        cursor.execute("SELECT * FROM stocks WHERE symbol = %s",
+                       (symbol.upper(),))
+        exists = cursor.fetchall()
 
-    raise HTTPException(status_code=404, detail="Stock not found")
+        if not exists:
+            raise HTTPException(status_code=404, detail="Stock not found")
+
+        stock = exists[0]
+
+        # Removing from table.
+        cursor.execute("DELETE FROM stocks WHERE symbol = %s",
+                       (symbol.upper(),))
+
+        # Commit the transaction.
+        cursor._connection.commit()
+
+        return Stock(stock_id=stock["stock_id"], symbol=stock["symbol"], quantity=stock["quantity"])
 
 
 @app.get("/view_portfolio", response_model=List[PortfolioStock])
