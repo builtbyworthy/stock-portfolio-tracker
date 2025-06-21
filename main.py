@@ -19,10 +19,10 @@ def get_db_connection():
     Returns the DB Connection.
     """
     return mysql_connector.connect(
-        host="****",
-        user="****",
-        password="*****",
-        database="*****"
+        host="*",
+        user="*",
+        password="*",
+        database="*"
     )
 
 
@@ -39,6 +39,14 @@ def db_cursor():
     finally:
         cursor.close()
         db.close()
+
+
+def convert_to_stock(data: List[dict]):
+    try:
+        return [Stock(**row) for row in data]
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Data formatting error: {str(e)}")
 
 
 class StockCreate(BaseModel):
@@ -77,32 +85,47 @@ def view_stocks(symbol: Optional[str] = None, stock_id: Optional[int] = None):
         data = cursor.fetchall()
 
         # Converting to Stock data type.
-        try:
-            return [Stock(**row) for row in data]
-        except Exception as e:
-            raise HTTPException(
-                status_code=500, detail=f"Data formatting error: {str(e)}")
+        return convert_to_stock(data)
 
 
 @app.get("/stocks/{symbol}", response_model=Stock)
 def view_stock(symbol: str):
-    return list(filter(lambda x: x.symbol.lower() == symbol.lower(), stocks))
+    with db_cursor() as cursor:
+        cursor.execute("SELECT * FROM stocks WHERE symbol = %s",
+                       (symbol.upper(),))
+        data = cursor.fetchall()
+
+        # Converting to Stock data type.
+        stocks = convert_to_stock(data)
+
+        if not stocks:
+            raise HTTPException(status_code=404, detail="Stock not found")
+
+        return stocks[0]
 
 
 @app.post("/stocks", response_model=Stock)
 def add_stock(stock: StockCreate):
-    for current_stock in stocks:
-        if current_stock.symbol.lower() == stock.symbol.lower():
-            return {"message": "Stock already added!"}
+    with db_cursor() as cursor:
+        cursor.execute("SELECT * FROM stocks WHERE symbol = %s",
+                       (stock.symbol.upper(),))
+        exists = cursor.fetchall()
 
-    new_stock = Stock(
-        stock_id=max(x.stock_id for x in stocks) + 1,
-        symbol=stock.symbol.upper(),
-        quantity=stock.quantity
-    )
+        if exists:
+            raise HTTPException(
+                status_code=400, detail="Stock already exists.")
 
-    stocks.append(new_stock)
-    return new_stock
+        # Add the new stock.
+        sql = "INSERT INTO stocks (symbol, quantity) VALUES (%s, %s)"
+        val = (stock.symbol.upper(), stock.quantity)
+        cursor.execute(sql, val)
+
+        # Commit the transaction.
+        cursor._connection.commit()
+
+        # Get the last inserted ID.
+        stock_id = cursor.lastrowid
+        return Stock(stock_id=stock_id, symbol=stock.symbol.upper(), quantity=stock.quantity)
 
 
 @app.put("/stocks/{symbol}", response_model=Stock)
