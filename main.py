@@ -4,10 +4,14 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from temp_db import stocks, Stock
 from starlette.responses import RedirectResponse
+from mysql import connector as mysql_connector
 import random
 import requests
 
 app = FastAPI()
+
+# Database Configuration
+db = mysql_connector.connect()
 
 
 class StockCreate(BaseModel):
@@ -103,7 +107,7 @@ def view_portfolio():
 
 
 @app.get("/historical_prices")
-def view_historical_prices():
+async def view_historical_prices():
     url = "https://www.alphavantage.co/query?function=HISTORICAL_OPTIONS&symbol=IBM&apikey=demo"
     req = requests.get(url)
     data = req.json()["data"]
