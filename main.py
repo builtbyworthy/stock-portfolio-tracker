@@ -130,19 +130,41 @@ def add_stock(stock: StockCreate):
 
 @app.put("/stocks/{symbol}", response_model=Stock)
 def update_stock(symbol: str, updated_stock: StockUpdate):
-    matching = [s for s in stocks if s.symbol.lower() == symbol.lower()]
+    with db_cursor() as cursor:
+        cursor.execute("SELECT * FROM stocks WHERE symbol = %s",
+                       (symbol.upper(),))
+        exists = cursor.fetchall()
 
-    if not matching:
-        raise HTTPException(status_code=404, detail="Stock not found")
+        if not exists:
+            raise HTTPException(status_code=404, detail="Stock not found")
 
-    stock = matching[0]
+        stock = exists[0]
 
-    if updated_stock.symbol is not None:
-        stock.symbol = updated_stock.symbol.upper()
-    if updated_stock.quantity is not None:
-        stock.quantity = updated_stock.quantity
+        # Update fields.
+        new_symbol = updated_stock.symbol.upper(
+        ) if updated_stock.symbol else stock["symbol"]
+        new_quantity = updated_stock.quantity if updated_stock.quantity is not None else stock[
+            "quantity"]
 
-    return stock
+        # Check that the values are unique (only if symbol is changing).
+        if updated_stock.symbol and new_symbol != stock["symbol"]:
+            cursor.execute(
+                "SELECT * FROM stocks WHERE symbol = %s", (new_symbol,))
+            symbol_conflict = cursor.fetchall()
+            if symbol_conflict:
+                raise HTTPException(
+                    status_code=400, detail=f"Stock symbol '{new_symbol}' already exists.")
+
+        # Update table.
+        cursor.execute(
+            "UPDATE stocks SET symbol = %s, quantity = %s WHERE symbol = %s",
+            (new_symbol, new_quantity, symbol.upper())
+        )
+
+        # Commit the transaction.
+        cursor._connection.commit()
+
+        return Stock(stock_id=stock["stock_id"], symbol=new_symbol, quantity=new_quantity)
 
 
 @app.delete("/stocks/{symbol}", response_model=Stock)
