@@ -1,81 +1,16 @@
 #!/bin/python3
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field, field_serializer
-from typing import List, Optional
-from starlette.responses import RedirectResponse
-from mysql import connector as mysql_connector
-from contextlib import contextmanager
 import random
 import requests
+from typing import List, Optional
+
+from fastapi import FastAPI, HTTPException
+from starlette.responses import RedirectResponse
+
+from helper_functions import db_cursor, convert_to_stock
+from stock_type import Stock, StockCreate, StockUpdate, PortfolioStock
+
 
 app = FastAPI()
-
-# Database Configuration
-
-
-def get_db_connection():
-    """
-    Returns the DB Connection.
-    """
-    return mysql_connector.connect(
-        host="*",
-        user="*",
-        password="*",
-        database="*"
-    )
-
-
-@contextmanager
-def db_cursor():
-    """
-    Yields the DB cursor, to use for querying.
-    """
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
-
-    try:
-        yield cursor
-    finally:
-        cursor.close()
-        db.close()
-
-
-def convert_to_stock(data: List[dict]):
-    try:
-        return [Stock(**row) for row in data]
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Data formatting error: {str(e)}")
-
-
-class StockBase(BaseModel):
-    symbol: str = Field(..., min_length=1, max_length=10,
-                        description="Stock symbol")
-    quantity: int = Field(..., ge=0,
-                          description="Stock quantity (Quantity must be non-negative)")
-
-
-class Stock(StockBase):
-    stock_id: int = Field(..., description="Unique identifier of the stock")
-
-
-class StockCreate(StockBase):
-    pass
-
-
-class StockUpdate(BaseModel):
-    symbol: Optional[str] = Field(None, min_length=1, max_length=10,
-                                  description="Stock symbol")
-    quantity: Optional[int] = Field(None, ge=0,
-                                    description="Stock quantity (Quantity must be non-negative)")
-
-
-class PortfolioStock(StockCreate):
-    price: float = Field(..., description="Stock price")
-
-    @field_serializer("price")
-    def format_price(self, value: float):
-        return f"{value:.2f}"
 
 
 @app.get("/")
