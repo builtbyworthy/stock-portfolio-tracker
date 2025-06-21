@@ -5,12 +5,18 @@ from typing import List, Optional
 import requests
 from fastapi import FastAPI, HTTPException
 from starlette.responses import RedirectResponse
+from prometheus_client import Counter, Histogram, make_asgi_app
 
 from helper_functions import db_cursor, convert_to_stock
 from stock_type import Stock, StockCreate, StockUpdate, PortfolioStock
 
 
 app = FastAPI()
+
+# Prometheus Metrics
+REQUEST_COUNT = Counter(
+    "request_count", "Total number of requests", ["method", "endpoint"])
+REQUEST_LATENCY = Histogram()
 
 
 @app.get("/")
@@ -19,7 +25,9 @@ def index():
 
 
 @app.get("/stocks", response_model=List[Stock])
-def view_stocks(symbol: Optional[str] = None, stock_id: Optional[int] = None):
+async def view_stocks(symbol: Optional[str] = None, stock_id: Optional[int] = None):
+    REQUEST_COUNT.labels("get", "/stocks").inc()
+
     with db_cursor() as cursor:
         if symbol is not None:
             cursor.execute(
@@ -37,7 +45,9 @@ def view_stocks(symbol: Optional[str] = None, stock_id: Optional[int] = None):
 
 
 @app.get("/stocks/{symbol}", response_model=Stock)
-def view_stock(symbol: str):
+async def view_stock(symbol: str):
+    REQUEST_COUNT.labels("get", "/stocks/{symbol}").inc()
+
     with db_cursor() as cursor:
         cursor.execute("SELECT * FROM stocks WHERE symbol = %s",
                        (symbol.upper(),))
@@ -53,7 +63,9 @@ def view_stock(symbol: str):
 
 
 @app.post("/stocks", response_model=Stock)
-def add_stock(stock: StockCreate):
+async def add_stock(stock: StockCreate):
+    REQUEST_COUNT.labels("post", "/stocks").inc()
+
     with db_cursor() as cursor:
         cursor.execute("SELECT * FROM stocks WHERE symbol = %s",
                        (stock.symbol.upper(),))
@@ -77,7 +89,9 @@ def add_stock(stock: StockCreate):
 
 
 @app.put("/stocks/{symbol}", response_model=Stock)
-def update_stock(symbol: str, updated_stock: StockUpdate):
+async def update_stock(symbol: str, updated_stock: StockUpdate):
+    REQUEST_COUNT.labels("put", "/stocks/{symbol}").inc()
+
     with db_cursor() as cursor:
         cursor.execute("SELECT * FROM stocks WHERE symbol = %s",
                        (symbol.upper(),))
@@ -116,7 +130,9 @@ def update_stock(symbol: str, updated_stock: StockUpdate):
 
 
 @app.delete("/stocks/{symbol}", response_model=Stock)
-def delete_stock(symbol: str):
+async def delete_stock(symbol: str):
+    REQUEST_COUNT.labels("delete", "/stocks/{symbol}").inc()
+
     with db_cursor() as cursor:
         cursor.execute("SELECT * FROM stocks WHERE symbol = %s",
                        (symbol.upper(),))
@@ -138,7 +154,9 @@ def delete_stock(symbol: str):
 
 
 @app.get("/view_portfolio", response_model=List[PortfolioStock])
-def view_portfolio():
+async def view_portfolio():
+    REQUEST_COUNT.labels("get", "/view_portfolio").inc()
+
     with db_cursor() as cursor:
         cursor.execute("SELECT * FROM stocks")
         stocks = cursor.fetchall()
@@ -157,6 +175,8 @@ def view_portfolio():
 
 @app.get("/historical_prices")
 async def view_historical_prices():
+    REQUEST_COUNT.labels("get", "/historical_prices")
+
     url = "https://www.alphavantage.co/query?function=HISTORICAL_OPTIONS&symbol=IBM&apikey=demo"
     req = requests.get(url)
     data = req.json()["data"]
