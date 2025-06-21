@@ -4,15 +4,19 @@ services:
     container_name: spt-prom
     ports:
       - '9090:9090'
+    user: '501'
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-    restart: unless-stopped
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-lifecycle
 
   grafana:
     image: grafana/grafana:latest
     container_name: spt-grafana
     ports:
       - '3000:3000'
-    restart: unless-stopped
+
+volumes:
+  prometheus_data:
