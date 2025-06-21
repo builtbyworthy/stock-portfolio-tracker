@@ -5,13 +5,40 @@ from typing import List, Optional
 from temp_db import stocks, Stock
 from starlette.responses import RedirectResponse
 from mysql import connector as mysql_connector
+from contextlib import contextmanager
 import random
 import requests
 
 app = FastAPI()
 
 # Database Configuration
-db = mysql_connector.connect()
+
+
+def get_db_connection():
+    """
+    Returns the DB Connection.
+    """
+    return mysql_connector.connect(
+        host="****",
+        user="****",
+        password="*****",
+        database="*****"
+    )
+
+
+@contextmanager
+def db_cursor():
+    """
+    Yields the DB cursor, to use for querying.
+    """
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+
+    try:
+        yield cursor
+    finally:
+        cursor.close()
+        db.close()
 
 
 class StockCreate(BaseModel):
@@ -36,12 +63,25 @@ def index():
 
 
 @app.get("/stocks", response_model=List[Stock])
-def view_stocks(symbol: str = None, stock_id: int = None):
-    if symbol is not None:
-        return list(filter(lambda x: x.symbol.lower() == symbol.lower(), stocks))
-    elif stock_id is not None:
-        return list(filter(lambda x: x.stock_id == stock_id, stocks))
-    return stocks
+def view_stocks(symbol: Optional[str] = None, stock_id: Optional[int] = None):
+    with db_cursor() as cursor:
+        if symbol is not None:
+            cursor.execute(
+                "SELECT * FROM stocks WHERE symbol = %s", (symbol.upper(),))
+        elif stock_id is not None:
+            cursor.execute(
+                "SELECT * FROM stocks WHERE stock_id = %s", (stock_id,))
+        else:
+            cursor.execute("SELECT * FROM stocks")
+
+        data = cursor.fetchall()
+
+        # Converting to Stock data type.
+        try:
+            return [Stock(**row) for row in data]
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"Data formatting error: {str(e)}")
 
 
 @app.get("/stocks/{symbol}", response_model=Stock)
