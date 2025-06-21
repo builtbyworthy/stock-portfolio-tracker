@@ -1,8 +1,7 @@
 #!/bin/python3
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 from typing import List, Optional
-from temp_db import stocks, Stock
 from starlette.responses import RedirectResponse
 from mysql import connector as mysql_connector
 from contextlib import contextmanager
@@ -49,11 +48,19 @@ def convert_to_stock(data: List[dict]):
             status_code=500, detail=f"Data formatting error: {str(e)}")
 
 
-class StockCreate(BaseModel):
+class StockBase(BaseModel):
     symbol: str = Field(..., min_length=1, max_length=10,
                         description="Stock symbol")
     quantity: int = Field(..., ge=0,
                           description="Stock quantity (Quantity must be non-negative)")
+
+
+class Stock(StockBase):
+    stock_id: int = Field(..., description="Unique identifier of the stock")
+
+
+class StockCreate(StockBase):
+    pass
 
 
 class StockUpdate(BaseModel):
@@ -65,6 +72,10 @@ class StockUpdate(BaseModel):
 
 class PortfolioStock(StockCreate):
     price: float = Field(..., description="Stock price")
+
+    @field_serializer("price")
+    def format_price(self, value: float):
+        return f"{value:.2f}"
 
 
 @app.get("/")
@@ -193,17 +204,20 @@ def delete_stock(symbol: str):
 
 @app.get("/view_portfolio", response_model=List[PortfolioStock])
 def view_portfolio():
-    portfolio = []
+    with db_cursor() as cursor:
+        cursor.execute("SELECT * FROM stocks")
+        stocks = cursor.fetchall()
+        portfolio = []
 
-    for stock in stocks:
-        portfolio.append(
-            PortfolioStock(
-                symbol=stock.symbol,
-                quantity=stock.quantity,
-                price=f"{random.randint(10, 500):0.2f}"
+        for stock in stocks:
+            portfolio.append(
+                PortfolioStock(
+                    symbol=stock["symbol"],
+                    quantity=stock["quantity"],
+                    price=random.uniform(10, 500)
+                )
             )
-        )
-    return portfolio
+        return portfolio
 
 
 @app.get("/historical_prices")
