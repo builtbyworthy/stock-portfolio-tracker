@@ -4,4 +4,4 @@ temp.py
 PROJECT.md
 alpha_vantage_api_key.csv
 temp_db.py
-env_db_keys
+.env_db_keys
