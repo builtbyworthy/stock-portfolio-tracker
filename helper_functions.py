@@ -3,14 +3,17 @@ import os
 from typing import List
 from contextlib import contextmanager
 
+from dotenv import load_dotenv
 from mysql import connector as mysql_connector
 from fastapi import HTTPException
 
 from stock_type import Stock
-# Database Configuration
 
 
-def get_db_connection():
+load_dotenv()  # loads from .env in the current directory
+
+
+def get_db_connection():  # Database Configuration
     """
     Returns the DB Connection.
     """

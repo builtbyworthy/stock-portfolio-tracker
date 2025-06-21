@@ -1,7 +1,5 @@
-__pycache__
+/__pycache__
 /venv
-temp.py
+/.temp
 PROJECT.md
-alpha_vantage_api_key.csv
-temp_db.py
-.env_db_keys
+.env

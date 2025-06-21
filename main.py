@@ -1,8 +1,8 @@
 #!/bin/python3
 import random
-import requests
 from typing import List, Optional
 
+import requests
 from fastapi import FastAPI, HTTPException
 from starlette.responses import RedirectResponse
 
