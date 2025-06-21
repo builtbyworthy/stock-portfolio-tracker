@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from dotenv import load_dotenv
 from mysql import connector as mysql_connector
 from fastapi import HTTPException
+import requests
 
 from stock_type import Stock
 
@@ -23,6 +24,10 @@ def get_db_connection():  # Database Configuration
         password=os.getenv("SPT_DB_PASSWORD"),
         database=os.getenv("SPT_DB_NAME")
     )
+
+
+def get_api_key():
+    return os.getenv("SPT_ALPHA_VANTAGE_KEY")
 
 
 @contextmanager
@@ -46,3 +51,9 @@ def convert_to_stock(data: List[dict]):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Data formatting error: {str(e)}")
+
+
+def get_api_data(url: str):
+    req = requests.get(url)
+    data = req.json()
+    return data

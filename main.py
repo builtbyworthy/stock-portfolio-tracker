@@ -2,11 +2,10 @@
 import random
 from typing import List, Optional
 
-import requests
 from fastapi import FastAPI, HTTPException
 from starlette.responses import RedirectResponse
 
-from helper_functions import db_cursor, convert_to_stock
+from helper_functions import db_cursor, convert_to_stock, get_api_data, get_api_key
 from stock_type import Stock, StockCreate, StockUpdate, PortfolioStock
 from prometheus_metrics import REQUEST_LATENCY, REQUEST_COUNT, mount_prometheus_endpoint
 
@@ -159,16 +158,21 @@ async def view_portfolio():
         REQUEST_COUNT.labels("get", "/view_portfolio").inc()
 
         with db_cursor() as cursor:
-            cursor.execute("SELECT * FROM stocks")
+            # Getting the latest 10 stocks - due to API limits!
+            cursor.execute(
+                "SELECT * FROM stocks ORDER BY created_at DESC, stock_id DESC LIMIT 10")
             stocks = cursor.fetchall()
             portfolio = []
 
             for stock in stocks:
+                url = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={stock["symbol"]}&apikey={get_api_key()}"
+                data = get_api_data(url)
+
                 portfolio.append(
                     PortfolioStock(
                         symbol=stock["symbol"],
                         quantity=stock["quantity"],
-                        price=random.uniform(10, 500)
+                        price=data["Global Quote"]["05. price"]
                     )
                 )
             return portfolio
@@ -180,9 +184,7 @@ async def view_historical_prices():
         REQUEST_COUNT.labels("get", "/historical_prices").inc()
 
         url = "https://www.alphavantage.co/query?function=HISTORICAL_OPTIONS&symbol=IBM&apikey=demo"
-        req = requests.get(url)
-        data = req.json()["data"]
-
+        data = get_api_data(url)["data"]
         return data
 
 
