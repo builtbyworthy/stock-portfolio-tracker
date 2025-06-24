@@ -5,9 +5,9 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException
 from starlette.responses import RedirectResponse
 
-from helper_functions import db_cursor, convert_to_stock, get_api_data, get_api_key
-from stock_type import Stock, StockCreate, StockUpdate, PortfolioStock
-from prometheus_metrics import REQUEST_LATENCY, REQUEST_COUNT, mount_prometheus_endpoint
+from app.helper_functions import db_cursor, convert_to_stock, get_api_data, get_api_key
+from app.stock_type import Stock, StockCreate, StockUpdate, PortfolioStock
+from app.prometheus_metrics import REQUEST_LATENCY, REQUEST_COUNT, mount_prometheus_endpoint
 
 
 app = FastAPI()

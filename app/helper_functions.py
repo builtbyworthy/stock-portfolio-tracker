@@ -8,7 +8,7 @@ from mysql import connector as mysql_connector
 from fastapi import HTTPException
 import requests
 
-from stock_type import Stock
+from app.stock_type import Stock
 
 
 load_dotenv()  # loads from .env in the current directory
