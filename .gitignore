@@ -1,7 +1,7 @@
 /__pycache__
 /venv
 /.temp
-PROJECT.md
+app/PROJECT.md
 .env
-prometheus.yml
-/prometheus_data
+app/prometheus.yml
+app/prometheus_data
